@@ -33,7 +33,6 @@
 
     //Variable brightness
     #define TIMERDISPLAYBRIGHTNESS_PIN 4
-//
 
 
 //Global variables
@@ -42,14 +41,11 @@
 
   //Timer values
     //Time logic values
-    unsigned long endTime;
     unsigned long timeLeft;
-    bool countingDown = false;
-    bool haveShownTime = false;
     bool timerDispIsOn = true;
     bool thingHasBeenRemoved = false;
-    bool saveTime = false;
     bool timerStartSeq = true;
+    bool countdownHasStarted = false;
     
     // 1 is 10 mins, 0 is 5 mins
     bool timerModes = 1;
@@ -71,18 +67,17 @@
 
 
   //Speaker logic
-  const int audioOutPin = 25;  // ESP32 DAC pin (GPIO 25 or 26)
   const int waveFreq = 550;    // Target frequency (550 Hz)
   const float volumeScale = 0.1; // Adjust volume (1.0 = max)
 
-  int sampleRates[] = {11050, 12500, 9040};  // Sample rates for 440 Hz, 420 Hz, and 464 Hz
+  int sampleRates[] = {10450, 12500, 9030};  // Sample rates for 440 Hz, 420 Hz, and 464 Hz
   int currentSampleRateIndex = 0;  // Track current sample rate
   unsigned long lastToggleTime = 0;
   const int toggleInterval = 2000; // 2 seconds
     
   bool startTheSpeaker = false;
 
-  //Demo toggle
+  //DEBUGGING - Demo toggle
     bool haveStartedDemo = false;
     bool demo2 = false;
     bool demo3 = false;
@@ -113,7 +108,7 @@
         if(!startTheSpeaker) break;
         float angle = (2.0 * M_PI * i) / samplesPerWave;
         int value = (sin(angle) * (127 * volumeScale)) + 128;
-        dacWrite(audioOutPin, value);
+        dacWrite(AUDIOAMP_PIN, value);
         delayMicroseconds(delayTime);
       }
     } else {
@@ -165,7 +160,8 @@ void readTemperature() {
         lastValidTemperature = temperature;  // Update last valid temperature
     }
 
-  // Serial.print("Temperature: ");         //Output the temperature to the Serial Monitor terminal
+  //DEBUGGING - Output the temperature to the Serial Monitor terminal
+  // Serial.print("Temperature: ");
   // Serial.print(temperature);
   // Serial.println(" °C\n");
 
@@ -196,7 +192,7 @@ int readDistance(){
   int distance = measure.RangeMilliMeter;
 
   if (measure.RangeStatus != 0 || distance == 0 || distance > 2000) {
-      //Serial.println("Invalid distance reading! Using last known distance.");
+      Serial.println("Invalid distance reading! Using last known distance.");
       distance = lastValidDistance;
   } else {
       lastValidDistance = distance;
@@ -229,7 +225,6 @@ void showTimerMode(unsigned long minutes){
   Serial.print(minutes);
   Serial.print(" minutes");
   Serial.print("\n");
-  haveShownTime = true;
 }
 
 void startCountDown(volatile uint32_t minutes){
@@ -311,8 +306,7 @@ void toggleTimerMode(){
   }
 
   timerStartSeq = true;
-
-  haveShownTime = false;
+  countdownHasStarted = false;
 }
 
 void toggleSpeakerMode(){
@@ -323,12 +317,9 @@ void toggleSpeakerMode(){
     currentSampleRateIndex = 0;
   }
 
-  
-
   Serial.print("The speaker tone is now set to: ");
   Serial.print(currentSampleRateIndex);
   Serial.print("\n");
-
 
 }
 
@@ -365,7 +356,6 @@ void loop() {
     Serial.printf("Time remaining: %02d:%02d\n", minutes, seconds);
     
 
-
     if(!timerStartSeq){
 
       sendTimeToDisplay(remainingTime);
@@ -381,18 +371,22 @@ void loop() {
         if(remainingTime > 0){
           remainingTime--;
           startTheSpeaker = false;
+          countdownHasStarted = true;
           timerDisplay.setBrightness(dispBrightness);
         }
         else{
           Serial.printf("Timer ended signal sent\n");
           toggleTimerDisplay();
           startTheSpeaker = true;
+          countdownHasStarted = false;
         }
       }
       else{
         Serial.printf("TIMERPAUSED\n");
         toggleTimerDisplay();
-        startTheSpeaker = true;
+        if(countdownHasStarted){
+          startTheSpeaker = true;
+        }
       }
     }
     else{
@@ -454,8 +448,4 @@ void loop() {
     }
   }
   
-
-  
 }
-
-
